@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Linq;
 using Tacoly.Tokenizer.Properties;
+using Tacoly.Util;
 
 namespace Tacoly.Tokenizer.Tokens;
 
@@ -32,25 +33,24 @@ public class Program : Token
         {
             if (statement is IRootCodeProvider root)
             {
-                sb.Append(root.ProvidedRootCode(scope));
+                sb.AppendLine(root.ProvidedRootCode(scope));
             }
             if (statement is ICodeProvider code)
             {
-                mainMethod.Append(code.ProvidedCode(scope));
-                mainMethod.Append(' ');
+                mainMethod.AppendLine(code.ProvidedCode(scope));
                 int resultStackSize = code.ResultStack(scope).Count();
                 for (int i = 0; i < resultStackSize; i++)
                 {
-                    mainMethod.Append("discard ");
+                    mainMethod.AppendLine("drop");
                 }
             }
         }
 
-        sb.Append("(module ");
+        sb.Append("(module\n");
 
-        sb.Append(@"(func (export ""main"") ");
-        sb.Append(mainMethod);
-        sb.Append("))");
+        sb.AppendLine("\t(func (export \"main\")");
+        sb.AppendLine(mainMethod.Tabbed(2));
+        sb.Append("\t)\n)");
 
         return sb.ToString();
     }

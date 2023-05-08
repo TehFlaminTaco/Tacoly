@@ -1,5 +1,6 @@
 namespace Tacoly;
 
-public class Scope {
-	
+public class Scope
+{
+
 }
