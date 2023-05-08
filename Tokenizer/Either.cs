@@ -1,17 +1,19 @@
 namespace Tacoly;
 
-public class Either<A,B>
+public class Either<A, B>
 {
-	public A? Left;
-	public B? Right;
+    public A? Left;
+    public B? Right;
 
-	public void Set(A left){
-		Left = left;
-		Right = null;
-	}
+    public void Set(A left)
+    {
+        Left = left;
+        Right = null;
+    }
 
-	public void Set(B right){
-		Right = right;
-		Left = null;
-	}
+    public void Set(B right)
+    {
+        Right = right;
+        Left = null;
+    }
 }
