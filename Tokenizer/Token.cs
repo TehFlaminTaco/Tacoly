@@ -3,7 +3,7 @@ using System.Linq;
 using System.Reflection;
 using System.Collections.Generic;
 
-namespace Tacoly;
+namespace Tacoly.Tokenizer;
 
 public struct Claimer
 {

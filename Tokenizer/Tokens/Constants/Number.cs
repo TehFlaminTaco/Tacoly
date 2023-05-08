@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
+using Tacoly.Util;
+using Tacoly.Tokenizer.Properties;
 
-namespace Tacoly;
+namespace Tacoly.Tokenizer.Tokens.Constants;
 
 public class Number : Token, ICodeProvider, IConstantProvider
 {

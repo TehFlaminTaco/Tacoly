@@ -1,4 +1,4 @@
-namespace Tacoly;
+namespace Tacoly.Tokenizer.Properties;
 
 public interface IRootCodeProvider
 {

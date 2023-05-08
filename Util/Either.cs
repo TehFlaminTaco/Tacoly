@@ -1,6 +1,6 @@
 using System;
 
-namespace Tacoly;
+namespace Tacoly.Util;
 
 public class Either<A, B>
 {

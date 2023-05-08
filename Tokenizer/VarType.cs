@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
+using Tacoly.Tokenizer.Properties;
 
-namespace Tacoly;
+namespace Tacoly.Tokenizer;
 
 public class VarType
 {
@@ -32,8 +33,8 @@ public class VarType
 public class VarTypeToken : Token, ITypeProvider
 {
     public required string TypeName;
-    public required int pointerDepth;
-    public required Token? genericArgs;
+    public required int PointerDepth;
+    public required Token? GenericArgs;
 
     [RegisterClaimer()]
     public static VarTypeToken? Claim(StringClaimer claimer)
@@ -59,8 +60,8 @@ public class VarTypeToken : Token, ITypeProvider
         return new(claimer.Raw(flag), claimer.File)
         {
             TypeName = ident.Match!.Value,
-            pointerDepth = ptrDepth,
-            genericArgs = genericArgs
+            PointerDepth = ptrDepth,
+            GenericArgs = genericArgs
         };
     }
 
@@ -69,11 +70,11 @@ public class VarTypeToken : Token, ITypeProvider
     public VarType ProvidedType(Scope scope)
     {
         IEnumerable<VarType> args = Enumerable.Empty<VarType>();
-        if (genericArgs is ITypesProvider tps)
+        if (GenericArgs is ITypesProvider tps)
         {
             args = tps.ProvidedTypes(scope);
         }
-        else if (genericArgs is ITypeProvider tp)
+        else if (GenericArgs is ITypeProvider tp)
         {
             args = new VarType[] { tp.ProvidedType(scope) };
 
@@ -81,7 +82,7 @@ public class VarTypeToken : Token, ITypeProvider
         return new VarType()
         {
             Name = TypeName,
-            PointerDepth = pointerDepth,
+            PointerDepth = PointerDepth,
             GenericArguments = args
         };
     }

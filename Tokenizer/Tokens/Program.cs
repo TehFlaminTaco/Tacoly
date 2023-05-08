@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Linq;
 
-namespace Tacoly;
+namespace Tacoly.Tokenizer.Tokens;
 
 public class Program : Token
 {

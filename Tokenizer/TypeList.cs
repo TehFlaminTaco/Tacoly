@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
+using Tacoly.Tokenizer.Properties;
 
-namespace Tacoly;
+namespace Tacoly.Tokenizer;
 
 public class TypeList : Token, ITypesProvider
 {

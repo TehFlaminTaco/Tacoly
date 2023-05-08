@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using System.Diagnostics;
 using System.Collections.Generic;
 
-namespace Tacoly;
+namespace Tacoly.Tokenizer;
 
 using System.Text.RegularExpressions;
 using System.Diagnostics;

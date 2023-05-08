@@ -1,5 +1,6 @@
-namespace Tacoly;
+namespace Tacoly.Tokenizer;
 
-public class TypeDefinition {
-	
+public class TypeDefinition
+{
+
 }

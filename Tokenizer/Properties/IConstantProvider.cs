@@ -1,4 +1,6 @@
-namespace Tacoly;
+using Tacoly.Util;
+
+namespace Tacoly.Tokenizer.Properties;
 
 public interface IConstantProvider
 {

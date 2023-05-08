@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Tacoly;
+namespace Tacoly.Tokenizer.Properties;
 
 interface ITypesProvider
 {
