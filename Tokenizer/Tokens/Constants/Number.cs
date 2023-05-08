@@ -6,8 +6,8 @@ namespace Tacoly;
 public class Number : Token, ICodeProvider, IConstantProvider
 {
     public Number(string raw, string file) : base(raw, file) { }
-	
-	Either<double, long> underlying;
+
+    Either<double, long> underlying;
 
     [RegisterClaimer()]
     public static Number? Claim(StringClaimer claimer)
