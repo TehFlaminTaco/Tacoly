@@ -48,7 +48,7 @@ public class Program : Token
         sb.Append("(module ");
 
         sb.Append(@"(func (export ""main"") ");
-        sb.Append(mainMethod.ToString());
+        sb.Append(mainMethod);
         sb.Append("))");
 
         return sb.ToString();

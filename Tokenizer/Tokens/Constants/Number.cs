@@ -5,9 +5,9 @@ namespace Tacoly;
 
 public class Number : Token, ICodeProvider, IConstantProvider
 {
-    public Number(string raw, string file) : base(raw, file) { }
+    private Number(string raw, string file) : base(raw, file) { }
 
-    Either<double, long> underlying;
+    public required Either<double, long> Underlying { private get; init; }
 
     [RegisterClaimer()]
     public static Number? Claim(StringClaimer claimer)
@@ -16,25 +16,29 @@ public class Number : Token, ICodeProvider, IConstantProvider
         if (!numberText.Success) return null;
         bool forcedFloaty = claimer.Claim(@"f", true).Success || numberText.Match!.Value.Contains('.');
 
-        Number numb = new Number(claimer.Raw(numberText), claimer.File);
-        if (forcedFloaty)
-            numb.floatValue = double.Parse(numberText.Match!.Value);
-        else
-            numb.intValue = long.Parse(numberText.Match!.Value);
+        Number numb = new(claimer.Raw(numberText), claimer.File)
+        {
+            Underlying = forcedFloaty ? double.Parse(numberText.Match!.Value) : long.Parse(numberText.Match!.Value)
+        };
         return numb;
     }
 
     public string ProvidedCode(Scope scope)
     {
-        if (floatValue is not null)
+        if (Underlying.IsLeft(out double floatValue))
         {
             return $"(f64.const {floatValue})";
         }
-        return $"(i64.const {intValue!})";
+        return $"(i64.const {Underlying.GetRight()})";
     }
 
     public IEnumerable<VarType> ResultStack(Scope scope)
     {
-        return new VarType[] { floatValue is not null ? VarType.FLOAT : VarType.INT };
+        return new VarType[] { Underlying.IsLeft() ? VarType.FLOAT : VarType.INT };
+    }
+
+    public Either<double, long>? GetConstant(Scope scope)
+    {
+        return Underlying;
     }
 }

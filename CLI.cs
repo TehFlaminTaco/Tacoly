@@ -5,7 +5,7 @@ namespace Tacoly;
 
 public class CLI
 {
-    public static void Main(string[] args)
+    public static void Main(string[] _)
     {
         Token.RegisterDefaultClaimers();
 

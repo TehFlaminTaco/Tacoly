@@ -5,23 +5,23 @@ namespace Tacoly;
 
 public class VarType
 {
-    public string Name;
-    public int PointerDepth;
-    public IEnumerable<VarType> GenericArguments;
+    public required string Name;
+    public required int PointerDepth;
+    public required IEnumerable<VarType> GenericArguments;
 
-    public static VarType VOID = new()
+    public static VarType VOID { get; private set; } = new()
     {
         Name = "void",
         PointerDepth = 0,
         GenericArguments = Enumerable.Empty<VarType>()
     };
-    public static VarType INT = new()
+    public static VarType INT { get; private set; } = new()
     {
         Name = "int",
         PointerDepth = 0,
         GenericArguments = Enumerable.Empty<VarType>()
     };
-    public static VarType FLOAT = new()
+    public static VarType FLOAT { get; private set; } = new()
     {
         Name = "float",
         PointerDepth = 0,
@@ -31,9 +31,9 @@ public class VarType
 
 public class VarTypeToken : Token, ITypeProvider
 {
-    string typeName;
-    int pointerDepth;
-    Token? genericArgs;
+    public required string TypeName;
+    public required int pointerDepth;
+    public required Token? genericArgs;
 
     [RegisterClaimer()]
     public static VarTypeToken? Claim(StringClaimer claimer)
@@ -58,7 +58,7 @@ public class VarTypeToken : Token, ITypeProvider
         }
         return new(claimer.Raw(flag), claimer.File)
         {
-            typeName = ident.Match!.Value,
+            TypeName = ident.Match!.Value,
             pointerDepth = ptrDepth,
             genericArgs = genericArgs
         };
@@ -80,7 +80,7 @@ public class VarTypeToken : Token, ITypeProvider
         }
         return new VarType()
         {
-            Name = typeName,
+            Name = TypeName,
             PointerDepth = pointerDepth,
             GenericArguments = args
         };

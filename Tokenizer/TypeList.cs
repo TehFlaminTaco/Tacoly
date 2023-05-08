@@ -5,8 +5,8 @@ namespace Tacoly;
 
 public class TypeList : Token, ITypesProvider
 {
-    public Token Left;
-    public Token Right;
+    public required Token Left;
+    public required Token Right;
 
     [RegisterLeftClaimer<ITypeProvider, ITypesProvider>(1)]
     public static TypeList? Claim(StringClaimer claimer, Token left)
@@ -48,7 +48,7 @@ public class TypeList : Token, ITypesProvider
         }
         if (Right is ITypeProvider r)
         {
-            types.Append(r.ProvidedType(scope));
+            types = types.Append(r.ProvidedType(scope));
         }
         else
         {
