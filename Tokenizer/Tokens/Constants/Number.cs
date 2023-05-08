@@ -18,9 +18,15 @@ public class Number : Token, ICodeProvider, IConstantProvider
         if (!numberText.Success) return null;
         bool forcedFloaty = claimer.Claim(@"f", true).Success || numberText.Match!.Value.Contains('.');
 
+        Either<double, long> number;
+        if (forcedFloaty)
+            number = double.Parse(numberText.Match!.Value);
+        else
+            number = long.Parse(numberText.Match!.Value);
+
         Number numb = new(claimer.Raw(numberText), claimer.File)
         {
-            Underlying = forcedFloaty ? double.Parse(numberText.Match!.Value) : long.Parse(numberText.Match!.Value)
+            Underlying = number
         };
         return numb;
     }

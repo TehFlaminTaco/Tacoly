@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Linq;
+using Tacoly.Tokenizer.Properties;
 
 namespace Tacoly.Tokenizer.Tokens;
 
@@ -13,7 +14,7 @@ public class Program : Token
     {
         Program prog = new(claimer.Code, claimer.File);
         Token? last;
-        while ((last = Token.Claim<IRootCodeProvider, ICodeProvider>(claimer, 0)) is not null)
+        while ((last = Claim<IRootCodeProvider, ICodeProvider>(claimer, 0)) is not null)
         {
             prog.Statements.Add(last);
             claimer.Claim(@";");
