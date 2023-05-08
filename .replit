@@ -1,5 +1,5 @@
 run = "dotnet run"
-entrypoint = "main.cs"
+entrypoint = "CLI.cs"
 
 hidden = ["bin", "obj"]
 
@@ -22,8 +22,8 @@ channel = "stable-22_11"
 [languages.csharp]
 pattern = "**/*.cs"
 
-  [languages.csharp.languageServer]
-  start = ["OmniSharp", "--languageserver"]
+[languages.csharp.languageServer]
+start = ["OmniSharp", "--languageserver"]
 
 [deployment]
 run = ["sh", "-c", "dotnet run"]
