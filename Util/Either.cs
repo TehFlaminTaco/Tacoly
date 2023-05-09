@@ -78,6 +78,13 @@ public class Either<A, B>
         return !Lefty;
     }
 
+    public T Match<T>(Func<A, T> left, Func<B, T> right)
+    {
+        return Lefty
+            ? left(Left!)
+            : right(Right!);
+    }
+
     public static implicit operator A(Either<A, B> either)
     {
         return either.GetLeft();

@@ -36,6 +36,8 @@ public abstract class Token
 
     public static void RegisterDefaultClaimers()
     {
+        Tokens.Math.RegisterMathOps();
+
         var TaggedClaimers = Assembly
             .GetExecutingAssembly()
             .GetTypes()

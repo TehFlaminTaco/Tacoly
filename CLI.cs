@@ -13,7 +13,7 @@ public class CLI
 
         Console.WriteLine(Token.Claimers.Count);
         Console.WriteLine(Token.LeftClaimers.Count);
-        StringClaimer claimer = new("13", "test.taco");
+        StringClaimer claimer = new("13+8.2", "test.taco");
         Program p = Program.Claim(claimer);
         Console.WriteLine(p.GetCode());
 
