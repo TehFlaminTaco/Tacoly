@@ -21,7 +21,7 @@ public struct Operator
     public Func<double, double, Either<double, long>>? DoubleMath;
 }
 
-public class Math : Token, ICodeProvider, IConstantProvider
+public class Math : Token, ICodeProvider, IConstantProvider, IRootCodeProvider
 {
     public required Token Left;
     public required Token Right;
@@ -145,7 +145,65 @@ public class Math : Token, ICodeProvider, IConstantProvider
         }
         var constant = GetConstant(scope);
         if (constant is not null) return IConstantProvider.ProvidedCode(constant);
-        return "";
+        {
+            string? leftCode = null;
+            IEnumerable<VarType> leftTypes = Enumerable.Empty<VarType>();
+            Either<double, long>? leftConst = null;
+            if (Left is IConstantProvider l2 && (leftConst = l2.GetConstant(scope)) is not null)
+            {
+                leftCode = IConstantProvider.ProvidedCode(leftConst);
+                leftTypes = IConstantProvider.ResultStack(leftConst);
+            }
+            else
+            {
+                if (Left is not ICodeProvider lcp) throw new Exception("Impossible");
+                leftCode = lcp.ProvidedCode(scope);
+                leftTypes = lcp.ResultStack(scope);
+            }
+            string? rightCode = null;
+            Either<double, long>? rightConst = null;
+            IEnumerable<VarType> rightTypes = Enumerable.Empty<VarType>();
+            if (Right is IConstantProvider r2 && (rightConst = r2.GetConstant(scope)) is not null)
+            {
+                rightCode = IConstantProvider.ProvidedCode(rightConst);
+                rightTypes = IConstantProvider.ResultStack(rightConst);
+            }
+            else
+            {
+                if (Right is not ICodeProvider rcp) throw new Exception("Impossible");
+                rightCode = rcp.ProvidedCode(scope);
+                rightTypes = rcp.ResultStack(scope);
+            }
+            if (Operator.Name is "and" or "or" && leftConst is not null)
+            {
+                if (Operator.Name is "and" && leftConst.Match(c => c, c => c) == 0)
+                    return leftCode;
+                if (Operator.Name is "or" && leftConst.Match(c => c, c => c) != 0)
+                    return leftCode;
+                return rightCode;
+            }
+            StringBuilder code = new();
+            var lTypes = leftTypes.ToList();
+            var rTypes = rightTypes.ToList();
+            if (lTypes.Count == 0 || rTypes.Count == 0)
+                throw new Exception("Partial expression has no type.");
+            var meta = lTypes[0].GetDefinition().GetMeta(Operator.Name, new VarType[] { lTypes[0], rTypes[0] }) ?? rTypes[0].GetDefinition().GetMeta(Operator.Name, new VarType[] { lTypes[0], rTypes[0] });
+            if (meta is null)
+            {
+                throw new Exception($"No metamethod {Operator.Name}({lTypes[0]}, {rTypes[0]})");
+            }
+            FuncType metaType = (meta.Value.Type as FuncType)!;
+            code.MaybeAppendLine(leftCode);
+            for (int i = 1; i < lTypes.Count; i++)
+                code.MaybeAppendLine("drop");
+            code.MaybeAppendLine(lTypes[0].Coax(metaType.ParameterTypes.ElementAt(0)));
+            code.MaybeAppendLine(rightCode);
+            for (int i = 1; i < rTypes.Count; i++)
+                code.MaybeAppendLine("drop");
+            code.MaybeAppendLine(rTypes[0].Coax(metaType.ParameterTypes.ElementAt(1)));
+            code.MaybeAppendLine(meta.Value.DeOffset());
+            return code.ToString();
+        }
     }
 
     public IEnumerable<VarType> ResultStack(Scope scope)
@@ -178,6 +236,60 @@ public class Math : Token, ICodeProvider, IConstantProvider
         }
         var constant = GetConstant(scope);
         if (constant is not null) return IConstantProvider.ResultStack(constant);
-        return Enumerable.Empty<VarType>();
+        {
+            IEnumerable<VarType> leftTypes = Enumerable.Empty<VarType>();
+            Either<double, long>? leftConst = null;
+            if (Left is IConstantProvider l2 && (leftConst = l2.GetConstant(scope)) is not null)
+            {
+                leftTypes = IConstantProvider.ResultStack(leftConst);
+            }
+            else
+            {
+                if (Left is not ICodeProvider lcp) throw new Exception("Impossible");
+                leftTypes = lcp.ResultStack(scope);
+            }
+            Either<double, long>? rightConst = null;
+            IEnumerable<VarType> rightTypes = Enumerable.Empty<VarType>();
+            if (Right is IConstantProvider r2 && (rightConst = r2.GetConstant(scope)) is not null)
+            {
+                rightTypes = IConstantProvider.ResultStack(rightConst);
+            }
+            else
+            {
+                if (Right is not ICodeProvider rcp) throw new Exception("Impossible");
+                rightTypes = rcp.ResultStack(scope);
+            }
+            if (Operator.Name is "and" or "or" && leftConst is not null)
+            {
+                if (Operator.Name is "and" && leftConst.Match(c => c, c => c) == 0)
+                    return leftTypes;
+                if (Operator.Name is "or" && leftConst.Match(c => c, c => c) != 0)
+                    return leftTypes;
+                return rightTypes;
+            }
+            var lTypes = leftTypes.ToList();
+            var rTypes = rightTypes.ToList();
+            if (lTypes.Count == 0 || rTypes.Count == 0)
+                throw new Exception("Partial expression has no type.");
+            var meta = lTypes[0].GetDefinition().GetMeta(Operator.Name, new VarType[] { lTypes[0], rTypes[0] }) ?? rTypes[0].GetDefinition().GetMeta(Operator.Name, new VarType[] { lTypes[0], rTypes[0] });
+            if (meta is null)
+            {
+                throw new Exception($"No metamethod {Operator.Name}({lTypes[0]}, {rTypes[0]})");
+            }
+            return (meta.Value.Type as FuncType)!.ReturnTypes;
+        }
+    }
+
+    public string ProvidedRootCode(Scope scope)
+    {
+        if (GetConstant(scope) is not null) return "";
+        StringBuilder sb = new();
+        if (Left is IRootCodeProvider lrcp)
+            if (Left is not IConstantProvider lcst || lcst.GetConstant(scope) == null)
+                sb.MaybeAppendLine(lrcp.ProvidedRootCode(scope));
+        if (Right is IRootCodeProvider rrcp)
+            if (Right is not IConstantProvider rcst || rcst.GetConstant(scope) == null)
+                sb.MaybeAppendLine(rrcp.ProvidedRootCode(scope));
+        return sb.ToString();
     }
 }

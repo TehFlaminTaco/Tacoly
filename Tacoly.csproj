@@ -2,8 +2,8 @@
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFramework>netcoreapp7.0</TargetFramework>
-        <LangVersion>11.0</LangVersion>
+        <TargetFramework>netcoreapp6.0</TargetFramework>
+        <LangVersion>preview</LangVersion>
         <StartupObject>Tacoly.CLI</StartupObject>
         <Nullable>enable</Nullable>
         <RootNamespace>Tacoly</RootNamespace>

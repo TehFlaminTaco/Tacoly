@@ -17,4 +17,15 @@ public static partial class StringHelper
         return sb.ToString().Tabbed(tabs);
     }
 
+    public static StringBuilder MaybeAppendLine(this StringBuilder sb, string other)
+    {
+        if (!String.IsNullOrWhiteSpace(other)) sb.AppendLine(other.TrimEnd());
+        return sb;
+    }
+
+    public static StringBuilder MaybeAppendLine(this StringBuilder sb, StringBuilder other)
+    {
+        return sb.MaybeAppendLine(other.ToString());
+    }
+
 }

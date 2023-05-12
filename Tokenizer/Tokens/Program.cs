@@ -27,17 +27,18 @@ public class Program : Token
     {
         StringBuilder sb = new();
         StringBuilder mainMethod = new();
-
+        sb.AppendLine("(module");
+        sb.AppendLine("(memory 1)".Tabbed());
         Scope scope = new();
         foreach (var statement in Statements)
         {
             if (statement is IRootCodeProvider root)
             {
-                sb.AppendLine(root.ProvidedRootCode(scope));
+                sb.MaybeAppendLine(root.ProvidedRootCode(scope).Tabbed());
             }
             if (statement is ICodeProvider code)
             {
-                mainMethod.AppendLine(code.ProvidedCode(scope));
+                mainMethod.MaybeAppendLine(code.ProvidedCode(scope));
                 int resultStackSize = code.ResultStack(scope).Count();
                 for (int i = 0; i < resultStackSize; i++)
                 {
@@ -46,10 +47,8 @@ public class Program : Token
             }
         }
 
-        sb.Append("(module\n");
-
         sb.AppendLine("\t(func (export \"main\")");
-        sb.AppendLine(mainMethod.Tabbed(2));
+        sb.MaybeAppendLine(mainMethod.Tabbed(2));
         sb.Append("\t)\n)");
 
         return sb.ToString();

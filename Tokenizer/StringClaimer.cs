@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Tacoly.Tokenizer;
 
@@ -41,7 +42,7 @@ public class StringClaimer
     /// <returns>A new <see cref="Claim"/> object without consuming any characters.</returns>
     public Claim Flag()
     {
-        return new Claim(this, null);
+        return new Claim(this, null, true);
     }
 
     /// <summary>
@@ -53,7 +54,6 @@ public class StringClaimer
     {
         Debug.Assert(regex.ToString().StartsWith(@"\G"), @"Claim Regexes must be anchored (Begin with \G)");
         Debug.Assert(regex.Options.HasFlag(RegexOptions.Compiled), @"Claim Regexes should be compiled, as they're re-used heavily.");
-
         if (!noSkip)
             SkipWhitespace();
 
@@ -93,12 +93,24 @@ public class StringClaimer
             Index += match.Length;
     }
 
+    public Claim Identifier()
+    {
+        Claim flag = Flag();
+        Claim cl = Claim(IdentifierRegex);
+        if (cl.Success && Token.Keywords.Contains(cl.Match!.Value))
+        {
+            flag.Fail();
+            return flag;
+        }
+        return cl;
+    }
+
     // Private members
     private static readonly Dictionary<string, Regex> _patternCache = new();
 
     private static readonly Regex WhitespaceRegex = new(@"\G(?://.*|/\*(?:.|\s)*(?:\*|$)/|\s+)+", RegexOptions.Compiled);
 
-    public static readonly Regex Identifier = new(@"\G[a-zA-Z_]\w+", RegexOptions.Compiled);
+    public static readonly Regex IdentifierRegex = new(@"\G[a-zA-Z_]\w+", RegexOptions.Compiled);
 }
 
 /// <summary>
@@ -133,6 +145,14 @@ public class Claim
         Claimer = claimer;
         Match = match;
         Success = match is not null && match.Success;
+        Index = match?.Index ?? claimer.Index;
+    }
+
+    public Claim(StringClaimer claimer, Match? match, bool success)
+    {
+        Claimer = claimer;
+        Match = match;
+        Success = success;
         Index = match?.Index ?? claimer.Index;
     }
 
