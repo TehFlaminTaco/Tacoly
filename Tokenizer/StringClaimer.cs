@@ -12,7 +12,7 @@ using System.Collections.Generic;
 /// <summary>
 /// A utility class that helps parsing a string by consuming substrings according to rules defined in <see cref="Claim"/>.
 /// </summary>
-public class StringClaimer
+public partial class StringClaimer
 {
     public string File { get; private set; }
 
@@ -108,9 +108,14 @@ public class StringClaimer
     // Private members
     private static readonly Dictionary<string, Regex> _patternCache = new();
 
-    private static readonly Regex WhitespaceRegex = new(@"\G(?://.*|/\*(?:.|\s)*(?:\*|$)/|\s+)+", RegexOptions.Compiled);
+    private static readonly Regex WhitespaceRegex = GenerateWhitespaceRegex();
 
-    public static readonly Regex IdentifierRegex = new(@"\G[a-zA-Z_]\w+", RegexOptions.Compiled);
+    public static readonly Regex IdentifierRegex = GenerateIdentifierRegex();
+
+    [GeneratedRegex("\\G(?://.*|/\\*(?:.|\\s)*(?:\\*|$)/|\\s+)+", RegexOptions.Compiled)]
+    private static partial Regex GenerateWhitespaceRegex();
+    [GeneratedRegex("\\G[a-zA-Z_]\\w+", RegexOptions.Compiled)]
+    private static partial Regex GenerateIdentifierRegex();
 }
 
 /// <summary>

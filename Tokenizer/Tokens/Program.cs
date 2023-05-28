@@ -29,6 +29,9 @@ public class Program : Token
         StringBuilder mainMethod = new();
         sb.AppendLine("(module");
         sb.AppendLine("(memory 1)".Tabbed());
+        sb.AppendLine("(func $i32dup (param i32) (result i32 i32) local.get 0 local.get 0)".Tabbed());
+        sb.AppendLine("(func $i64dup (param i64) (result i64 i64) local.get 0 local.get 0)".Tabbed());
+        sb.AppendLine("(func $f64dup (param f64) (result f64 f64) local.get 0 local.get 0)".Tabbed());
         Scope scope = new();
         foreach (var statement in Statements)
         {

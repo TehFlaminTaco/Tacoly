@@ -11,7 +11,7 @@ public class CLI
     {
         Token.RegisterDefaultClaimers();
 
-        StringClaimer claimer = new("@int john + 4", "test.taco");
+        StringClaimer claimer = new("@int john + john", "test.taco");
         Program p = Program.Claim(claimer);
         Console.WriteLine(p.GetCode());
 

@@ -1,3 +1,4 @@
+using System.Reflection.PortableExecutable;
 using System.Diagnostics;
 using System.ComponentModel;
 using System.Text;
@@ -27,7 +28,7 @@ public class Math : Token, ICodeProvider, IConstantProvider, IRootCodeProvider
     public required Token Right;
     public required Operator Operator;
 
-    public static Operator[] Operators = new[] {
+    public static readonly Operator[] Operators = new[] {
         new Operator { Symbol = "||", Name = "or", Priority = 0, Precedence = 3, LongMath = (a,b)=> a!=0||b!=0 ? 1 : 0},
         new Operator { Symbol = "&&", Name = "and", Priority = 0, Precedence = 4, LongMath = (a,b)=> a!=0&&b!=0 ? 1 : 0},
         new Operator { Symbol = "|", Name = "bor", Priority = 0, Precedence = 5, LongMath = (a,b)=> a|b},
@@ -187,21 +188,45 @@ public class Math : Token, ICodeProvider, IConstantProvider, IRootCodeProvider
             var rTypes = rightTypes.ToList();
             if (lTypes.Count == 0 || rTypes.Count == 0)
                 throw new Exception("Partial expression has no type.");
-            var meta = lTypes[0].GetDefinition().GetMeta(Operator.Name, new VarType[] { lTypes[0], rTypes[0] }) ?? rTypes[0].GetDefinition().GetMeta(Operator.Name, new VarType[] { lTypes[0], rTypes[0] });
-            if (meta is null)
-            {
-                throw new Exception($"No metamethod {Operator.Name}({lTypes[0]}, {rTypes[0]})");
-            }
-            FuncType metaType = (meta.Value.Type as FuncType)!;
             code.MaybeAppendLine(leftCode);
             for (int i = 1; i < lTypes.Count; i++)
                 code.MaybeAppendLine("drop");
+            if (Operator.Name is "and" or "or")
+            {
+                code.AppendLine($"(call ${lTypes[0].GetDefinition().InternalType}dup)");
+                // Get the truthy metamethod, if any
+                var truthyMeta = lTypes[0].GetDefinition().GetMeta("truthy", new VarType[] { lTypes[0] });
+                if (truthyMeta is not null)
+                {
+                    code.MaybeAppendLine(truthyMeta.Value.DeOffset());
+                }
+                VarType rootType = VarType.MostCommonRoot(lTypes[0], rTypes[0]);
+                StringBuilder codeA = new();
+                codeA.MaybeAppendLine(lTypes[0].Coax(rootType).Tabbed().Tabbed());
+                StringBuilder codeB = new();
+                codeB.MaybeAppendLine("drop".Tabbed().Tabbed());
+                codeB.MaybeAppendLine(rightCode.Tabbed().Tabbed());
+                for (int i = 1; i < rTypes.Count; i++)
+                    codeB.MaybeAppendLine("drop".Tabbed().Tabbed());
+                codeB.MaybeAppendLine(rTypes[0].Coax(rootType).Tabbed().Tabbed());
+
+                code.MaybeAppendLine($"(if (param {lTypes[0].GetDefinition().InternalType}) (result {rootType.GetDefinition().InternalType})");
+                code.MaybeAppendLine($"\t(then");
+                code.MaybeAppendLine(Operator.Name == "and" ? codeB.ToString() : codeA.ToString());
+                code.MaybeAppendLine($"\t) (else");
+                code.MaybeAppendLine(Operator.Name == "and" ? codeA.ToString() : codeB.ToString());
+                code.MaybeAppendLine("\t)");
+                code.MaybeAppendLine(")");
+                return code.ToString();
+            }
+            var meta = (lTypes[0].GetDefinition().GetMeta(Operator.Name, new VarType[] { lTypes[0], rTypes[0] }) ?? rTypes[0].GetDefinition().GetMeta(Operator.Name, new VarType[] { lTypes[0], rTypes[0] })) ?? throw new Exception($"No metamethod {Operator.Name}({lTypes[0]}, {rTypes[0]})");
+            FuncType metaType = (meta.Type as FuncType)!;
             code.MaybeAppendLine(lTypes[0].Coax(metaType.ParameterTypes.ElementAt(0)));
             code.MaybeAppendLine(rightCode);
             for (int i = 1; i < rTypes.Count; i++)
                 code.MaybeAppendLine("drop");
             code.MaybeAppendLine(rTypes[0].Coax(metaType.ParameterTypes.ElementAt(1)));
-            code.MaybeAppendLine(meta.Value.DeOffset());
+            code.MaybeAppendLine(meta.DeOffset());
             return code.ToString();
         }
     }
@@ -271,12 +296,12 @@ public class Math : Token, ICodeProvider, IConstantProvider, IRootCodeProvider
             var rTypes = rightTypes.ToList();
             if (lTypes.Count == 0 || rTypes.Count == 0)
                 throw new Exception("Partial expression has no type.");
-            var meta = lTypes[0].GetDefinition().GetMeta(Operator.Name, new VarType[] { lTypes[0], rTypes[0] }) ?? rTypes[0].GetDefinition().GetMeta(Operator.Name, new VarType[] { lTypes[0], rTypes[0] });
-            if (meta is null)
+            if (Operator.Name is "and" or "or")
             {
-                throw new Exception($"No metamethod {Operator.Name}({lTypes[0]}, {rTypes[0]})");
+                return new VarType[] { VarType.MostCommonRoot(lTypes[0], rTypes[0]) };
             }
-            return (meta.Value.Type as FuncType)!.ReturnTypes;
+            var meta = (lTypes[0].GetDefinition().GetMeta(Operator.Name, new VarType[] { lTypes[0], rTypes[0] }) ?? rTypes[0].GetDefinition().GetMeta(Operator.Name, new VarType[] { lTypes[0], rTypes[0] })) ?? throw new Exception($"No metamethod {Operator.Name}({lTypes[0]}, {rTypes[0]})");
+            return (meta.Type as FuncType)!.ReturnTypes;
         }
     }
 

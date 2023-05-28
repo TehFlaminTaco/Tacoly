@@ -14,7 +14,7 @@ public struct Member
 
     public string? MetamethodBody;
 
-    public string DeOffset()
+    public readonly string DeOffset()
     {
         Debug.Assert(MetamethodBody is not null, "Cannot De-Offset non-metamethod!");
         return MetamethodBody.Replace(";Offset;", "" + Offset);
@@ -49,23 +49,23 @@ public class TypeDefinition
             .Where(c => c.Name == name)
             .Where(c => c.Type is FuncType)
             .Where(c => (c.Type as FuncType)!.ParameterTypes.Count() == parameters.Count())
-            .Where(c => (c.Type as FuncType)!.ParameterTypes.Zip(parameters).All(a => a.Item2.CanCoax(a.Item1)))
+            .Where(c => (c.Type as FuncType)!.ParameterTypes.Zip(parameters).All(a => a.Second.CanCoax(a.First)))
             .Where(c => returnTypes is null
                 || ((c.Type as FuncType)!.ReturnTypes.Count() == parameters.Count()
-                && (c.Type as FuncType)!.ReturnTypes.Zip(returnTypes).All(a => a.Item2.CanCoax(a.Item1))))
+                && (c.Type as FuncType)!.ReturnTypes.Zip(returnTypes).All(a => a.Second.CanCoax(a.First))))
             .Select(
-                c => (c, (c.Type as FuncType)!.ParameterTypes.Zip(parameters).Sum(a => a.Item2.CoaxCost(a.Item1))
-                    + (returnTypes is not null ? (c.Type as FuncType)!.ReturnTypes.Zip(returnTypes).Sum(a => a.Item2.CoaxCost(a.Item1)) : 0))
+                c => (c, (c.Type as FuncType)!.ParameterTypes.Zip(parameters).Sum(a => a.Second.CoaxCost(a.First))
+                    + (returnTypes is not null ? (c.Type as FuncType)!.ReturnTypes.Zip(returnTypes).Sum(a => a.Second.CoaxCost(a.First)) : 0))
             )
             .OrderBy(c => c.Item2)
             .ToList();
         if (allMetaMethods.Count == 0) return null;
         if (allMetaMethods.Count > 1) Debug.Assert(allMetaMethods[0].Item2 != allMetaMethods[1].Item2,
-                                     $"Metamethod ambigious between {name}({String.Join(", ", (allMetaMethods[0].Item1.Type as FuncType)!.ParameterTypes)}): {String.Join(", ", (allMetaMethods[0].Item1.Type as FuncType)!.ReturnTypes)} and {name}({String.Join(", ", (allMetaMethods[1].Item1.Type as FuncType)!.ParameterTypes)}): {String.Join(", ", (allMetaMethods[1].Item1.Type as FuncType)!.ReturnTypes)}");
-        return allMetaMethods[0].Item1;
+                                     $"Metamethod ambigious between {name}({string.Join(", ", (allMetaMethods[0].c.Type as FuncType)!.ParameterTypes)}): {string.Join(", ", (allMetaMethods[0].c.Type as FuncType)!.ReturnTypes)} and {name}({string.Join(", ", (allMetaMethods[1].c.Type as FuncType)!.ParameterTypes)}): {string.Join(", ", (allMetaMethods[1].c.Type as FuncType)!.ReturnTypes)}");
+        return allMetaMethods[0].c;
     }
 
-    public static TypeDefinition INT = new()
+    public static readonly TypeDefinition INT = new()
     {
         Name = "int",
         InternalType = "i64",
@@ -78,20 +78,39 @@ public class TypeDefinition
         }
     };
 
-    public static TypeDefinition FLOAT = new()
+    public static readonly TypeDefinition FLOAT = new()
     {
         Name = "float",
         InternalType = "f64"
     };
 
-    public static TypeDefinition VOID = new()
+    public static readonly TypeDefinition VOID = new()
     {
         Name = "void",
-        InternalType = "i64"
+        InternalType = "i64",
+        Members = new[]{
+            new Member(){
+                Name = "truthy",
+                Type = VarType.Of("func(void):int"),
+                MetamethodBody = "drop\n(i64.const 0)"
+            }
+        }
     };
 
-    public static TypeDefinition POINTER = new()
+    public static readonly TypeDefinition POINTER = new()
     {
-        Name = "ptr"
+        Name = "ptr",
+        Members = new[]{
+            new Member(){
+                Name = "add",
+                Type = VarType.Of("func(@void,int):@void"),
+                MetamethodBody = "(i64.extend_i32_s)\n(i64.add)\n(i32.wrap_i64)"
+            },
+            new Member(){
+                Name = "add",
+                Type = VarType.Of("func(@void,@void):@void"),
+                MetamethodBody = "(i32.add)"
+            }
+        }
     };
 }

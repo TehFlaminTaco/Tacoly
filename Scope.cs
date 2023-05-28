@@ -12,34 +12,34 @@ public struct Variable
     public string Label;
 }
 
-public class Scope
+public partial class Scope
 {
-    private static HashSet<string> allLabels { get; set; } = new();
-    private Dictionary<string, Variable> scopedVars { get; init; } = new();
-    private List<Variable> scopedMethods { get; init; } = new();
+    private static HashSet<string> AllLabels { get; set; } = new();
+    private Dictionary<string, Variable> ScopedVars { get; init; } = new();
+    private List<Variable> ScopedMethods { get; init; } = new();
     public Scope? Parent;
 
     public Variable? Get(string identifier)
     {
-        return scopedVars.ContainsKey(identifier) ? scopedVars[identifier] : Parent?.Get(identifier);
+        return ScopedVars.TryGetValue(identifier, out Variable value) ? value : Parent?.Get(identifier);
     }
 
     public Variable? Get(string identifier, VarType funcType)
     {
-        return (scopedMethods.Where(c => c.Identifier == identifier)
+        return ScopedMethods.Where(c => c.Identifier == identifier)
                              .Where(c => c.Type.Like(funcType))
-                             .FirstOrDefault() as Variable?) ?? Parent?.Get(identifier, funcType);
+                             .FirstOrDefault() as Variable? ?? Parent?.Get(identifier, funcType);
     }
 
-    private static readonly Regex BadChars = new(@"\W");
+    private static readonly Regex BadChars = GenerateBadChars();
     public string Make(string identifier, VarType type)
     {
         string baselabel = BadChars.Replace($"{type.Name}_{identifier}", "");
         string label = baselabel;
-        while (allLabels.Contains(label))
+        while (AllLabels.Contains(label))
             label += $"{new System.Random().NextInt64() % 16:x}";
-        allLabels.Add(label);
-        this.scopedVars[identifier] = new()
+        AllLabels.Add(label);
+        ScopedVars[identifier] = new()
         {
             Type = type,
             Identifier = identifier,
@@ -47,4 +47,7 @@ public class Scope
         };
         return label;
     }
+
+    [GeneratedRegex("\\W")]
+    private static partial Regex GenerateBadChars();
 }

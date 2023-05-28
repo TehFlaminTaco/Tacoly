@@ -28,7 +28,7 @@ public abstract class Token
     public static List<Claimer> Claimers { get; private set; } = new();
     public static List<LeftClaimer> LeftClaimers { get; private set; } = new();
 
-    public static string[] Keywords = new[]{
+    public static readonly string[] Keywords = new[]{
         "func",
         "if","else","for","function","where"
     };

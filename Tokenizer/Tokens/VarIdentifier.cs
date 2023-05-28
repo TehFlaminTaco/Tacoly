@@ -1,70 +1,67 @@
-using System.Text;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using Tacoly.Tokenizer;
+using System.Text;
 using Tacoly.Tokenizer.Properties;
 using Tacoly.Util;
 
 namespace Tacoly.Tokenizer.Tokens;
 
-public class VariableDeclaration : Token, IRootCodeProvider, ICodeProvider, IAssignable
+public class VarIdentifier : Token, ICodeProvider, IAssignable
 {
-    public VariableDeclaration(string raw, string file) : base(raw, file) { }
+    public required string Identifier { get; set; }
+    public VarIdentifier(string raw, string file) : base(raw, file) { }
 
-    public required ITypeProvider Type;
-    public required string Identifier;
-
-    [RegisterLeftClaimer<ITypeProvider>]
-    public static VariableDeclaration? Claim(StringClaimer claimer, Token left)
+    [RegisterClaimer()]
+    public static VarIdentifier? Claim(StringClaimer claimer)
     {
-        var flag = claimer.Flag();
-        var ident = claimer.Identifier();
+        Claim flag = claimer.Flag();
+        Claim ident = claimer.Identifier();
         if (!ident.Success)
         {
             flag.Fail();
             return null;
         }
 
-        return new VariableDeclaration(left.Raw + " " + claimer.Raw(flag), claimer.File)
+        return new VarIdentifier(claimer.Raw(flag), claimer.File)
         {
-            Type = (ITypeProvider)left,
             Identifier = ident.Match!.Value
         };
     }
 
     public string ProvidedCode(Scope scope)
     {
-        var label = scope.Get(Identifier)!.Value.Label;
-        return $"(global.get ${label})";
-    }
+        if (scope.Get(Identifier) is not Variable var)
+        {
+            throw new Exception($"Variable {Identifier} not found in scope");
+        }
+        return $"(global.get ${var.Label})";
 
-    public string ProvidedRootCode(Scope scope)
-    {
-        var varType = Type.ProvidedType(scope);
-        var typeDef = varType.GetDefinition();
-        var label = scope.Make(Identifier, varType);
-        return $"(global ${label} (mut {typeDef.InternalType}) ({typeDef.InternalType}.const 0))";
     }
-
     public IEnumerable<VarType> ResultStack(Scope scope)
     {
-        return new[] { Type.ProvidedType(scope) };
+        if (scope.Get(Identifier) is not Variable var)
+        {
+            throw new Exception($"Variable {Identifier} not found in scope");
+        }
+        return new VarType[] { var.Type };
     }
 
     public bool CanAssign(Scope scope, IEnumerable<VarType> types)
     {
-        if (!types.Any()) return false;
-        VarType typ = Type.ProvidedType(scope);
-        if (typ.Name == "var") return true;
-        return types.Any(t => typ.CanCoax(t));
+        if (scope.Get(Identifier) is not Variable var)
+        {
+            throw new Exception($"Variable {Identifier} not found in scope");
+        }
+        return types.Any(t => t.CanCoax(var.Type));
     }
     public string AssignValue(Scope scope, IEnumerable<VarType> types)
     {
-        VarType typ = Type.ProvidedType(scope);
-        if (typ.Name == "var")
+        if (scope.Get(Identifier) is not Variable var)
         {
-            Type = new TypeProvider(types.First());
+            throw new Exception($"Variable {Identifier} not found in scope");
         }
+        var typ = var.Type;
         StringBuilder finalDrops = new();
         while (!types.First().CanCoax(typ))
         {
@@ -85,7 +82,11 @@ public class VariableDeclaration : Token, IRootCodeProvider, ICodeProvider, IAss
 
     public IEnumerable<VarType> ConsumeTypes(Scope scope, IEnumerable<VarType> types)
     {
-        VarType typ = Type.ProvidedType(scope);
+        if (scope.Get(Identifier) is not Variable var)
+        {
+            throw new Exception($"Variable {Identifier} not found in scope");
+        }
+        VarType typ = var.Type;
         if (typ.Name == "var") return types.Skip(1);
         while (types.Any() && !types.First().CanCoax(typ)) types = types.Skip(1);
         types = types.Skip(1);

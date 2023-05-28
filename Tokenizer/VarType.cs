@@ -41,7 +41,7 @@ public class VarType
     private static readonly Dictionary<string, VarType> _cachedTypes = new();
     public static VarType Of(string str)
     {
-        if (_cachedTypes.ContainsKey(str)) return _cachedTypes[str];
+        if (_cachedTypes.TryGetValue(str, out VarType? value)) return value;
         StringClaimer claimer = new(str, "<internal>");
         ITypeProvider? typ = FuncTypeToken.Claim(claimer) as ITypeProvider ?? VarTypeToken.Claim(claimer) as ITypeProvider;
         Debug.Assert(typ is not null, "Could not parse static type: " + str);
@@ -60,12 +60,14 @@ public class VarType
     public virtual int CoaxCost(VarType to)
     {
         Debug.Assert(CanCoax(to), $"Can't coax {this} to {to}");
-        if (!Like(to)) return 4; // Only do-able via Metamethod then.
-        int totalCost = GenericArguments.Zip(to.GenericArguments).Select(a => a.Item1.CoaxCost(a.Item2)).Sum(); ;
+        if (!Like(to, true)) return 4; // Only do-able via Metamethod then.
+        int totalCost = GenericArguments.Zip(to.GenericArguments).Select(a => a.First.CoaxCost(a.Second)).Sum(); ;
         if (this.PointerDepth > to.PointerDepth)
-            totalCost += 1;
-        if (this.Name != to.Name)
             totalCost += 2;
+        if (this.Name != to.Name)
+        {
+            totalCost += 3;
+        }
         return totalCost;
 
     }
@@ -76,16 +78,71 @@ public class VarType
         return (implicitDereference ? PointerDepth >= other.PointerDepth : PointerDepth == other.PointerDepth)
             && Root.GetDefinition().IsChildOf(other.Root.GetDefinition())
             && GenericArguments.Count() == other.GenericArguments.Count()
-            && GenericArguments.Zip(other.GenericArguments).All(a => a.Item1.Like(a.Item2));
+            && GenericArguments.Zip(other.GenericArguments).All(a => a.First.Like(a.Second));
     }
 
     public virtual bool CanCoax(VarType to)
     {
         if (Like(to, true)) return true;
+        if (to.Name == "void") return true;
+        if (Name == "void") return true;
         var metaMethod = GetDefinition().GetMeta("cast", Enumerable.Empty<VarType>(), new VarType[] { to });
         if (metaMethod is not null) return true;
         metaMethod = to.GetDefinition().GetMeta("cast", new VarType[] { this }, new VarType[] { to });
         return metaMethod is not null;
+    }
+
+    // Valid types are i32, i64, or f64
+    public static string BitCast(string from, string to)
+    {
+        if (from == to) return "";
+        switch (from)
+        {
+            case "i32":
+                {
+                    // Firstly, upsize to i64
+                    string s = "(i64.extend_i32_s)";
+                    switch (to)
+                    {
+                        case "i64": return s;
+                        case "f64": return $"{s}\n(f64.reinterpret_i64)";
+                    }
+                    break;
+                }
+            case "i64":
+                {
+                    switch (to)
+                    {
+                        case "i32": return "(i32.wrap_i64)";
+                        case "f64": return "(f64.reinterpret_i64)";
+                    }
+                    break;
+                }
+            case "f64":
+                {
+                    // Uninterpret to i64
+                    string s = "(i64.reinterpret_f64)";
+                    switch (to)
+                    {
+                        case "i32": return $"{s}\n(i32.wrap_i64)";
+                        case "i64": return s;
+                    }
+                    break;
+                }
+        }
+        throw new System.Exception($"Invalid bitcast: {from} -> {to}");
+    }
+
+    public static VarType MostCommonRoot(params VarType[] options)
+    {
+        if (options.Length == 0) return VOID;
+        if (options.Length == 1) return options[0];
+        foreach (var option in options)
+        {
+            if (option == VOID) return VOID;
+            if (options.All(o => o.CanCoax(option))) return option;
+        }
+        return VOID;
     }
 
     public virtual string Coax(VarType to)
@@ -94,9 +151,14 @@ public class VarType
         if (Like(to, true))
         {
             if (this.PointerDepth - to.PointerDepth >= 1)
-                return String.Join('\n', Enumerable.Repeat("(i32.load)", (this.PointerDepth - to.PointerDepth) - 1).Append($"({to.GetDefinition().InternalType}.load)"));
+                return string.Join('\n', Enumerable.Repeat("(i32.load)", PointerDepth - to.PointerDepth - 1).Append($"({to.GetDefinition().InternalType}.load)"));
             return "";
         }
+        if (to.Name == "void" || Name == "void")
+        {
+            return BitCast(GetDefinition().InternalType, to.GetDefinition().InternalType);
+        }
+
         var metaMethod = GetDefinition().GetMeta("cast", Enumerable.Empty<VarType>(), new VarType[] { to })
                    ?? to.GetDefinition().GetMeta("cast", new VarType[] { this }, new VarType[] { to });
         Debug.Assert(metaMethod is not null, $"Couldn't coax {this} to {to} (Impossible?)");
@@ -105,14 +167,14 @@ public class VarType
 
     public override string ToString()
     {
-        if (this.GenericArguments.Count() > 0)
-            return new string('@', this.PointerDepth) + this.Name + '<' + String.Join(", ", this.GenericArguments) + ">";
+        if (GenericArguments.Any())
+            return new string('@', this.PointerDepth) + this.Name + '<' + string.Join(", ", this.GenericArguments) + ">";
         return new string('@', this.PointerDepth) + this.Name;
     }
 
     public static string InternalTypes(IEnumerable<VarType> types)
     {
-        return String.Join(' ', types.Select(c => c.GetDefinition().InternalType));
+        return string.Join(' ', types.Select(c => c.GetDefinition().InternalType));
     }
 }
 
@@ -127,15 +189,15 @@ public class FuncType : VarType
         return (implicitDereference ? PointerDepth >= other.PointerDepth : PointerDepth == other.PointerDepth)
             && ParameterTypes.Count() == otherF.ParameterTypes.Count()
             && ReturnTypes.Count() == otherF.ReturnTypes.Count()
-            && ParameterTypes.Zip(otherF.ParameterTypes).All(a => a.Item1.Like(a.Item2))
-            && ReturnTypes.Zip(otherF.ReturnTypes).All(a => a.Item1.Like(a.Item2));
+            && ParameterTypes.Zip(otherF.ParameterTypes).All(a => a.First.Like(a.Second))
+            && ReturnTypes.Zip(otherF.ReturnTypes).All(a => a.First.Like(a.Second));
     }
 
     public override string ToString()
     {
-        if (this.ReturnTypes.Count() > 0)
-            return new string('@', this.PointerDepth) + "func(" + String.Join(", ", this.ParameterTypes) + "): " + String.Join(", ", this.ReturnTypes);
-        return new string('@', this.PointerDepth) + "func(" + String.Join(", ", this.ParameterTypes) + ")";
+        if (ReturnTypes.Any())
+            return new string('@', PointerDepth) + "func(" + string.Join(", ", ParameterTypes) + "): " + string.Join(", ", ReturnTypes);
+        return new string('@', PointerDepth) + "func(" + string.Join(", ", ParameterTypes) + ")";
     }
 }
 
