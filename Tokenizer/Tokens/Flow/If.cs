@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Text;
+using System.Linq;
 using Tacoly.Tokenizer.Properties;
 using Tacoly.Tokenizer;
 using Tacoly.Util;
@@ -29,7 +31,7 @@ public class If : Token, ICodeProvider, IRootCodeProvider, IConstantProvider
             return null;
         }
         Token? otherwise = null;
-        if (claimer.Claim("else\b").Success)
+        if (claimer.Claim(@"else\b").Success)
         {
             otherwise = Claim<ICodeProvider, IConstantProvider>(claimer);
             if (otherwise is null)
@@ -92,16 +94,90 @@ public class If : Token, ICodeProvider, IRootCodeProvider, IConstantProvider
 
     public string ProvidedCode(Scope scope)
     {
-        throw new System.NotImplementedException();
+        var cnst = this.GetConstant(scope);
+        if (cnst is not null) return IConstantProvider.ProvidedCode(cnst);
+        if (Condition is IConstantProvider icp && icp.GetConstant(scope) is Either<double, long> con)
+        {
+            if (con.Match(c => c, c => c) != 0)
+            {
+                return Body.ConstantCode(scope);
+            }
+            if (Otherwise is null)
+                return "";
+            return Otherwise.ConstantCode(scope);
+        }
+
+        StringBuilder sb = new();
+        sb.MaybeAppendLine((Condition as ICodeProvider)!.ProvidedCode(scope));
+        var conditionTypes = Condition.ConstantStack(scope);
+        for (int i = 1; i < conditionTypes.Count(); i++)
+            sb.AppendLine("drop");
+        var truthyMeta = conditionTypes.First().GetDefinition().GetMeta("truthy", new VarType[] { conditionTypes.First() });
+        if (truthyMeta is not null)
+            sb.MaybeAppendLine(truthyMeta.Value.DeOffset());
+        var leftTypes = Body.ConstantStack(scope);
+        var rightTypes = Otherwise?.ConstantStack(scope) ?? Enumerable.Empty<VarType>();
+
+        var outTypes = VarType.MostCommonStack(leftTypes, rightTypes);
+        sb.MaybeAppendLine($"(if (result {VarType.InternalTypes(outTypes)})");
+        sb.MaybeAppendLine("(then".Tabbed());
+        sb.MaybeAppendLine(Body.ConstantCode(scope).Tabbed().Tabbed());
+        sb.MaybeAppendLine(VarType.CoaxStack(leftTypes, outTypes).Tabbed().Tabbed());
+        if (Otherwise is Token right)
+        {
+            sb.MaybeAppendLine(") (else".Tabbed());
+            sb.MaybeAppendLine(right.ConstantCode(scope).Tabbed().Tabbed());
+            sb.MaybeAppendLine(VarType.CoaxStack(rightTypes, outTypes).Tabbed().Tabbed());
+        }
+        sb.MaybeAppendLine(")".Tabbed());
+
+        sb.MaybeAppendLine(")");
+        return sb.ToString();
     }
 
     public string ProvidedRootCode(Scope scope)
     {
-        throw new System.NotImplementedException();
+        var cnst = this.GetConstant(scope);
+        if (cnst is not null) return "";
+        if (Condition.IsConstant(scope, out var c))
+        {
+            if (c.Match(v => v, v => v) != 0)
+                return Body.ConstantRoot(scope);
+            if (Otherwise is not null)
+                return Otherwise.ConstantRoot(scope);
+            return "";
+        }
+        StringBuilder sb = new();
+        var leftTypes = Body.ConstantStack(scope);
+        var rightTypes = Otherwise?.ConstantStack(scope) ?? Enumerable.Empty<VarType>();
+
+        var outTypes = VarType.MostCommonStack(leftTypes, rightTypes);
+        sb.MaybeAppendLine(VarType.WithGenerateCoaxStack(leftTypes, outTypes));
+        sb.MaybeAppendLine(VarType.WithGenerateCoaxStack(rightTypes, outTypes));
+        sb.MaybeAppendLine(Condition.ConstantRoot(scope));
+        sb.MaybeAppendLine(Body.ConstantRoot(scope));
+        if (Otherwise is not null)
+            sb.MaybeAppendLine(Otherwise.ConstantRoot(scope));
+        return sb.ToString();
     }
 
     public IEnumerable<VarType> ResultStack(Scope scope)
     {
-        throw new System.NotImplementedException();
+        var cnst = this.GetConstant(scope);
+        if (cnst is not null) return IConstantProvider.ResultStack(cnst);
+        if (Condition.IsConstant(scope, out var c))
+        {
+            if (c.Match(v => v, v => v) != 0)
+                return Body.ConstantStack(scope);
+
+            if (Otherwise is not null)
+                return Otherwise.ConstantStack(scope);
+
+            return Enumerable.Empty<VarType>();
+        };
+        var leftTypes = Body.ConstantStack(scope);
+        var rightTypes = Otherwise?.ConstantStack(scope) ?? Enumerable.Empty<VarType>();
+
+        return VarType.MostCommonStack(leftTypes, rightTypes);
     }
 }

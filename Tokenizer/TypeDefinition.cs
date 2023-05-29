@@ -104,7 +104,7 @@ public class TypeDefinition
             new Member(){
                 Name = "add",
                 Type = VarType.Of("func(@void,int):@void"),
-                MetamethodBody = "(i64.extend_i32_s)\n(i64.add)\n(i32.wrap_i64)"
+                MetamethodBody = "(i32.wrap_i64)\n(i32.add)"
             },
             new Member(){
                 Name = "add",

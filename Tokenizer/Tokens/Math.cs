@@ -1,6 +1,4 @@
-using System.Reflection.PortableExecutable;
 using System.Diagnostics;
-using System.ComponentModel;
 using System.Text;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -221,11 +219,10 @@ public class Math : Token, ICodeProvider, IConstantProvider, IRootCodeProvider
             }
             var meta = (lTypes[0].GetDefinition().GetMeta(Operator.Name, new VarType[] { lTypes[0], rTypes[0] }) ?? rTypes[0].GetDefinition().GetMeta(Operator.Name, new VarType[] { lTypes[0], rTypes[0] })) ?? throw new Exception($"No metamethod {Operator.Name}({lTypes[0]}, {rTypes[0]})");
             FuncType metaType = (meta.Type as FuncType)!;
-            code.MaybeAppendLine(lTypes[0].Coax(metaType.ParameterTypes.ElementAt(0)));
             code.MaybeAppendLine(rightCode);
             for (int i = 1; i < rTypes.Count; i++)
                 code.MaybeAppendLine("drop");
-            code.MaybeAppendLine(rTypes[0].Coax(metaType.ParameterTypes.ElementAt(1)));
+            code.MaybeAppendLine(VarType.CoaxStack(new VarType[] { lTypes[0], rTypes[0] }, metaType.ParameterTypes));
             code.MaybeAppendLine(meta.DeOffset());
             return code.ToString();
         }
@@ -309,12 +306,40 @@ public class Math : Token, ICodeProvider, IConstantProvider, IRootCodeProvider
     {
         if (GetConstant(scope) is not null) return "";
         StringBuilder sb = new();
-        if (Left is IRootCodeProvider lrcp)
+        {
+            if (Left is IRootCodeProvider lrcp)
+                if (Left is not IConstantProvider lcst || lcst.GetConstant(scope) == null)
+                    sb.MaybeAppendLine(lrcp.ProvidedRootCode(scope));
+            if (Right is IRootCodeProvider rrcp)
+                if (Right is not IConstantProvider rcst || rcst.GetConstant(scope) == null)
+                    sb.MaybeAppendLine(rrcp.ProvidedRootCode(scope));
+        }
+        if (!(Operator.Name is "and" or "or"))
+        {
             if (Left is not IConstantProvider lcst || lcst.GetConstant(scope) == null)
-                sb.MaybeAppendLine(lrcp.ProvidedRootCode(scope));
-        if (Right is IRootCodeProvider rrcp)
-            if (Right is not IConstantProvider rcst || rcst.GetConstant(scope) == null)
-                sb.MaybeAppendLine(rrcp.ProvidedRootCode(scope));
+            {
+                var lcp = (ICodeProvider)Left;
+                IEnumerable<VarType> leftTypes = lcp.ResultStack(scope);
+                Either<double, long>? rightConst = null;
+                IEnumerable<VarType> rightTypes = Enumerable.Empty<VarType>();
+                if (Right is IConstantProvider r2 && (rightConst = r2.GetConstant(scope)) is not null)
+                {
+                    rightTypes = IConstantProvider.ResultStack(rightConst);
+                }
+                else
+                {
+                    if (Right is not ICodeProvider rcp) throw new Exception("Impossible");
+                    rightTypes = rcp.ResultStack(scope);
+                }
+                var lTypes = leftTypes.ToList();
+                var rTypes = rightTypes.ToList();
+                if (lTypes.Count == 0 || rTypes.Count == 0)
+                    throw new Exception("Partial expression has no type.");
+                var meta = (lTypes[0].GetDefinition().GetMeta(Operator.Name, new VarType[] { lTypes[0], rTypes[0] }) ?? rTypes[0].GetDefinition().GetMeta(Operator.Name, new VarType[] { lTypes[0], rTypes[0] })) ?? throw new Exception($"No metamethod {Operator.Name}({lTypes[0]}, {rTypes[0]})");
+                var metaType = (FuncType)meta.Type;
+                sb.MaybeAppendLine(VarType.WithGenerateCoaxStack(new VarType[] { lTypes[0], rTypes[0] }, metaType.ParameterTypes));
+            }
+        }
         return sb.ToString();
     }
 }

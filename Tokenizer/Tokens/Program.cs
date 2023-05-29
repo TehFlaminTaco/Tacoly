@@ -44,9 +44,7 @@ public class Program : Token
                 mainMethod.MaybeAppendLine(code.ProvidedCode(scope));
                 int resultStackSize = code.ResultStack(scope).Count();
                 for (int i = 0; i < resultStackSize; i++)
-                {
                     mainMethod.AppendLine("drop");
-                }
             }
         }
 

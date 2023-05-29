@@ -56,7 +56,6 @@ public partial class StringClaimer
         Debug.Assert(regex.Options.HasFlag(RegexOptions.Compiled), @"Claim Regexes should be compiled, as they're re-used heavily.");
         if (!noSkip)
             SkipWhitespace();
-
         Match match = regex.Match(Code, Index);
         if (match.Success)
             Index += match.Length;

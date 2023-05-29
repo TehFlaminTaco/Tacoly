@@ -31,14 +31,20 @@ public partial class Scope
                              .FirstOrDefault() as Variable? ?? Parent?.Get(identifier, funcType);
     }
 
-    private static readonly Regex BadChars = GenerateBadChars();
-    public string Make(string identifier, VarType type)
+    public static string RandomLabel(string baselabel)
     {
-        string baselabel = BadChars.Replace($"{type.Name}_{identifier}", "");
         string label = baselabel;
         while (AllLabels.Contains(label))
             label += $"{new System.Random().NextInt64() % 16:x}";
         AllLabels.Add(label);
+        return label;
+    }
+
+    private static readonly Regex BadChars = GenerateBadChars();
+    public string Make(string identifier, VarType type)
+    {
+        string baselabel = BadChars.Replace($"{type.Name}_{identifier}", "");
+        string label = RandomLabel(baselabel);
         ScopedVars[identifier] = new()
         {
             Type = type,
@@ -50,4 +56,10 @@ public partial class Scope
 
     [GeneratedRegex("\\W")]
     private static partial Regex GenerateBadChars();
+
+	public Scope Sub(){
+		return new Scope(){
+			Parent = this
+		};
+	}
 }

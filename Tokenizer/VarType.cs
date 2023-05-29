@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using System;
 using Tacoly.Tokenizer.Properties;
+using Tacoly.Util;
 
 namespace Tacoly.Tokenizer;
 
@@ -76,7 +78,10 @@ public class VarType
     {
         if (other is FuncType) return false;
         return (implicitDereference ? PointerDepth >= other.PointerDepth : PointerDepth == other.PointerDepth)
-            && Root.GetDefinition().IsChildOf(other.Root.GetDefinition())
+            && (
+                ((this.Name == "void" || other.Name == "void") && this.PointerDepth > 0 && other.PointerDepth > 0) ||
+                Root.GetDefinition().IsChildOf(other.Root.GetDefinition())
+            )
             && GenericArguments.Count() == other.GenericArguments.Count()
             && GenericArguments.Zip(other.GenericArguments).All(a => a.First.Like(a.Second));
     }
@@ -144,6 +149,10 @@ public class VarType
         }
         return VOID;
     }
+    public static IEnumerable<VarType> MostCommonStack(IEnumerable<VarType> left, IEnumerable<VarType> right)
+    {
+        return left.Zip(right).Select(c => MostCommonRoot(c.First, c.Second));
+    }
 
     public virtual string Coax(VarType to)
     {
@@ -175,6 +184,107 @@ public class VarType
     public static string InternalTypes(IEnumerable<VarType> types)
     {
         return string.Join(' ', types.Select(c => c.GetDefinition().InternalType));
+    }
+
+    public static string TypePair(IEnumerable<VarType> inTypes, IEnumerable<VarType> outTypes)
+    {
+        return string.Join(' ', inTypes) + ": " + string.Join(' ', outTypes);
+    }
+
+    public static Dictionary<string, string> CoaxLastBodies = new();
+    public static Dictionary<string, string> CoaxLastNames = new();
+    public static Dictionary<string, bool> CoaxIsGenerated = new();
+
+    public static string CoaxStack(IEnumerable<VarType> inTypes, IEnumerable<VarType> outTypes)
+    {
+        string ID = TypePair(inTypes, outTypes);
+        Debug.Assert(inTypes.Count() >= outTypes.Count(), $"Cannot coax unmatched sides! {ID}");
+        string Body = CoaxStackBody(inTypes, outTypes);
+        while (outTypes.Any() && inTypes.First().Like(outTypes.First()))
+        {
+            // Whilst we don't actually need to cast them...
+            inTypes = inTypes.Skip(1);
+            outTypes = outTypes.Skip(1);
+        }
+        int overflow = inTypes.Count() - outTypes.Count();
+		StringBuilder sb = new();
+        for (int i = 0; i < overflow; i++)
+            sb.AppendLine("drop");
+        if (!outTypes.Any()) return sb.ToString();
+        if (outTypes.Count() == 1 && inTypes.Count() == 1){
+			sb.MaybeAppendLine(inTypes.First().Coax(outTypes.First()));
+            return sb.ToString();
+		}
+        Console.WriteLine($"{ID} == {TypePair(inTypes, outTypes)} {overflow}");
+        if (CoaxLastBodies.ContainsKey(ID) && CoaxLastBodies[ID] == Body)
+        {
+            sb.AppendLine($"(call ${CoaxLastNames[ID]})");
+            return sb.ToString();
+        }
+        CoaxLastBodies[ID] = Body;
+        CoaxLastNames[ID] = Scope.RandomLabel("coax");
+        CoaxIsGenerated[ID] = false;
+        sb.AppendLine($"(call ${CoaxLastNames[ID]})");
+        return sb.ToString();
+    }
+
+    public static string WithGenerateCoaxStack(IEnumerable<VarType> inTypes, IEnumerable<VarType> outTypes)
+    {
+        string ID = TypePair(inTypes, outTypes);
+        string Body = CoaxStackBody(inTypes, outTypes);
+        while (outTypes.Any() && inTypes.First().Like(outTypes.First()))
+        {
+            // Whilst we don't actually need to cast them...
+            inTypes = inTypes.Skip(1);
+            outTypes = outTypes.Skip(1);
+        }
+        if (!outTypes.Any()) return "";
+        if (outTypes.Count() == 1 && inTypes.Count() == 1)
+            return "";
+        if (CoaxLastBodies.ContainsKey(ID) && CoaxLastBodies[ID] == Body)
+        {
+            if (CoaxIsGenerated[ID])
+                return "";
+            CoaxIsGenerated[ID] = true;
+            return $"(func ${CoaxLastNames[ID]}\n{Body.Tabbed()}\n)";
+        }
+        CoaxLastBodies[ID] = Body;
+        CoaxLastNames[ID] = Scope.RandomLabel("coax");
+        CoaxIsGenerated[ID] = true;
+        return $"(func ${CoaxLastNames[ID]}\n{Body.Tabbed()}\n)";
+
+
+    }
+
+    public static string CoaxStackBody(IEnumerable<VarType> inTypes, IEnumerable<VarType> outTypes)
+    {
+        string ID = TypePair(inTypes, outTypes);
+        Debug.Assert(inTypes.Count() >= outTypes.Count(), $"Cannot coax unmatched sides! {ID}");
+        while (outTypes.Any() && inTypes.First().Like(outTypes.First()))
+        {
+            // Whilst we don't actually need to cast them...
+            inTypes = inTypes.Skip(1);
+            outTypes = outTypes.Skip(1);
+        }
+        if (!outTypes.Any()) return "";
+        if (inTypes.Count() == 1 && outTypes.Count() == 1)
+            return "";
+        StringBuilder sb = new();
+        sb.Append("(params ");
+        sb.Append(InternalTypes(inTypes));
+        sb.AppendLine(")");
+        sb.Append("(result ");
+        sb.Append(InternalTypes(outTypes));
+        sb.AppendLine(")");
+        int index = 0;
+        foreach ((var i, var o) in inTypes.Zip(outTypes))
+        {
+            sb.Append("local.get ");
+            sb.AppendLine(index.ToString());
+            sb.MaybeAppendLine(i.Coax(o));
+            index++;
+        }
+        return sb.ToString();
     }
 }
 
